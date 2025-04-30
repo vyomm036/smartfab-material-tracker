@@ -1,104 +1,91 @@
-import 'dart:async';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:equatable/equatable.dart';
 import '../../../services/auth_service.dart';
-
-part 'auth_event.dart';
-part 'auth_state.dart';
+import 'auth_event.dart';
+import 'auth_state.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AuthService _authService;
-  StreamSubscription<User?>? _authSubscription;
 
   AuthBloc({required AuthService authService})
       : _authService = authService,
-        super(const AuthInitial()) {
+        super(AuthInitial()) {
     on<AuthCheckRequested>(_onAuthCheckRequested);
-    on<AuthSignInRequested>(_onAuthSignInRequested);
-    on<AuthSignUpRequested>(_onAuthSignUpRequested);
-    on<AuthSignOutRequested>(_onAuthSignOutRequested);
-
-    _authSubscription = _authService.authStateChanges.listen((user) {
-      if (user != null) {
-        add(AuthCheckRequested());
-      } else {
-        add(const AuthSignOutRequested());
-      }
-    });
+    on<SignInRequested>(_onSignInRequested);
+    on<RegisterUserRequested>(_onRegisterUserRequested);
+    on<SignOutRequested>(_onSignOutRequested);
   }
 
   Future<void> _onAuthCheckRequested(
     AuthCheckRequested event,
     Emitter<AuthState> emit,
   ) async {
-    final user = _authService.currentUser;
-    if (user != null) {
-      emit(Authenticated(user: user));
-    } else {
-      emit(const Unauthenticated());
+    emit(AuthLoading());
+    try {
+      final user = _authService.currentUser;
+      if (user != null) {
+        final userData = await _authService._getUserData(user.uid);
+        emit(Authenticated(userData));
+      } else {
+        emit(Unauthenticated());
+      }
+    } catch (e) {
+      emit(AuthError(e.toString()));
     }
   }
 
-  Future<void> _onAuthSignInRequested(
-    AuthSignInRequested event,
+  Future<void> _onSignInRequested(
+    SignInRequested event,
     Emitter<AuthState> emit,
   ) async {
-    emit(const AuthLoading());
+    emit(AuthLoading());
     try {
-      await _authService.signInWithEmailAndPassword(
+      final user = await _authService.signInWithEmailAndPassword(
         event.email,
         event.password,
       );
-      final user = _authService.currentUser;
       if (user != null) {
-        emit(Authenticated(user: user));
+        emit(Authenticated(user));
       } else {
-        emit(const AuthError(message: 'Authentication failed'));
+        emit(const AuthError('Failed to sign in'));
       }
     } catch (e) {
-      emit(AuthError(message: e.toString()));
+      emit(AuthError(e.toString()));
     }
   }
 
-  Future<void> _onAuthSignUpRequested(
-    AuthSignUpRequested event,
+  Future<void> _onRegisterUserRequested(
+    RegisterUserRequested event,
     Emitter<AuthState> emit,
   ) async {
-    emit(const AuthLoading());
+    emit(AuthLoading());
     try {
-      await _authService.registerWithEmailAndPassword(
-        event.email,
-        event.password,
-        event.name,
+      final user = await _authService.registerUser(
+        name: event.name,
+        email: event.email,
+        password: event.password,
+        role: event.role,
+        assignedOperations: event.assignedOperations,
       );
-      final user = _authService.currentUser;
       if (user != null) {
-        emit(Authenticated(user: user));
+        emit(const AuthError('User registered successfully'));
       } else {
-        emit(const AuthError(message: 'Registration failed'));
+        emit(const AuthError('Failed to register user'));
       }
     } catch (e) {
-      emit(AuthError(message: e.toString()));
+      emit(AuthError(e.toString()));
     }
   }
 
-  Future<void> _onAuthSignOutRequested(
-    AuthSignOutRequested event,
+  Future<void> _onSignOutRequested(
+    SignOutRequested event,
     Emitter<AuthState> emit,
   ) async {
-    emit(const AuthLoading());
+    emit(AuthLoading());
     try {
       await _authService.signOut();
-      emit(const Unauthenticated());
+      emit(Unauthenticated());
     } catch (e) {
-      emit(AuthError(message: e.toString()));
+      emit(AuthError(e.toString()));
     }
-  }
-
-  @override
-  Future<void> close() {
-    _authSubscription?.cancel();
-    return super.close();
   }
 } 

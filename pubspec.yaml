@@ -33,6 +33,7 @@ dependencies:
   pdf: ^3.10.4
   path_provider: ^2.1.1
   intl: ^0.18.1
+  google_fonts: ^6.1.0
   
   # Networking
   connectivity_plus: ^4.0.2
@@ -42,6 +43,7 @@ dependencies:
   uuid: ^3.0.7
   permission_handler: ^10.4.5
   logger: ^1.4.0
+  dartz: ^0.10.1
 
 dev_dependencies:
   flutter_test:
